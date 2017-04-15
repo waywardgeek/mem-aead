@@ -43,6 +43,46 @@ static void mro_kdf(uint64_t Ka[16+4], uint64_t Ke[16+4], const uint8_t * k, con
   V1_GAMMA_UPDATE(Ke);
 }
 
+/* Absorb as much data as we can in twisted mode.  Return the number of bytes
+ * absorbed. */
+static size_t absorb_twisted(
+  const uint8_t * m, size_t mlen,
+  uint64_t L[16+4],
+  __m256i B[4])
+{
+  size_t orig_len = mlen;
+
+  while(mlen >= 4 * 4 * BYTES(MRO_B)) {
+    __m256i M[16];
+    size_t blocklen = 8 * 4 * BYTES(MRO_B);
+    int i;
+    const uint8_t * last;
+
+    /* Absorb pattern is ABCDEFGHEBGDAFCH. */
+    int pattern[16] = {0*512, 1*512, 2*512, 3*512, 4*512, 5*512, 6*512, 7*512,
+                       4*512, 1*512, 6*512, 3*512, 0*512, 5*512, 2*512, 7*512};
+    if (blocklen > mlen) {
+      blocklen = mlen & ~0x1f;
+    }
+    last = m + blocklen - 512;
+    for (i = 0; i < 16; i++) {
+      const uint8_t * p = m + pattern[i];
+      if (p > last) {
+        p -= 4 * 4 * BYTES(MRO_B);
+      }
+      V4_ALPHA_UPDATE_1(L);
+      V4_LOAD_BLOCK(M, p);
+      V4_BLOCKCIPHER_F_DIV4(M, L);
+      V4_ACCUMULATE(B, M);
+      V4_ALPHA_UPDATE_2(L);
+    }
+
+    m    += blocklen;
+    mlen -= blocklen;
+  }
+  return orig_len - mlen;
+}
+
 static void mro_compute_tag(void * tag,
   const uint8_t * h, size_t hlen,
   const uint8_t * m, size_t mlen,
@@ -52,6 +92,7 @@ static void mro_compute_tag(void * tag,
   const size_t mlen_ = mlen;
   __m256i B[4];
   uint64_t L_[16];
+  size_t twisted_len;
 
   memcpy(L_, L, BYTES(MRO_B)); /* we'll need it later */
   /* uint64_t L[16+4] = {0}; */
@@ -61,6 +102,10 @@ static void mro_compute_tag(void * tag,
   V1_ZERO_BLOCK(B);
 
   /* Absorb AD */
+  twisted_len = absorb_twisted(h, hlen, L, B);
+  hlen -= twisted_len;
+  h += twisted_len;
+
   while(hlen >= 4 * BYTES(MRO_B)) {
     __m256i H[16];
     V4_ALPHA_UPDATE_1(L);
@@ -102,34 +147,9 @@ static void mro_compute_tag(void * tag,
   memcpy(L, L_, BYTES(MRO_B));
   V1_BETA_UPDATE(L);
 
-  while(mlen >= 4 * 4 * BYTES(MRO_B)) {
-    __m256i M[16];
-    size_t blocklen = 8 * 4 * BYTES(MRO_B);
-    int i;
-    const uint8_t * last;
-
-    /* Absorb pattern is ABCDEFGHEBGDAFCH. */
-    int pattern[16] = {0*512, 1*512, 2*512, 3*512, 4*512, 5*512, 6*512, 7*512,
-                       4*512, 1*512, 6*512, 3*512, 0*512, 5*512, 2*512, 7*512};
-    if (blocklen > mlen) {
-      blocklen = mlen & ~0x1f;
-    }
-    last = m + blocklen - 512;
-    for (i = 0; i < 16; i++) {
-      const uint8_t * p = m + pattern[i];
-      if (p > last) {
-        p -= 4 * 4 * BYTES(MRO_B);
-      }
-      V4_ALPHA_UPDATE_1(L);
-      V4_LOAD_BLOCK(M, p);
-      V4_BLOCKCIPHER_F_DIV4(M, L);
-      V4_ACCUMULATE(B, M);
-      V4_ALPHA_UPDATE_2(L);
-    }
-
-    m    += blocklen;
-    mlen -= blocklen;
-  }
+  twisted_len = absorb_twisted(m, mlen, L, B);
+  mlen -= twisted_len;
+  m += twisted_len;
 
   while(mlen >= 4 * BYTES(MRO_B)) {
     __m256i M[16];
@@ -176,7 +196,6 @@ static void mro_compute_tag(void * tag,
   }
   memcpy(tag, B, BYTES(MRO_T));
 }
-
 
 static void mro_encrypt_data(
   uint8_t * c,
