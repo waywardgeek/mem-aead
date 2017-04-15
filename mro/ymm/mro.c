@@ -104,13 +104,13 @@ static void mro_compute_tag(void * tag,
 
   while(mlen >= 4 * 4 * BYTES(MRO_B)) {
     __m256i M[16];
+    size_t blocklen = 8 * 4 * BYTES(MRO_B);
+    int i;
+    const uint8_t * last;
 
     /* Absorb pattern is ABCDEFGHEBGDAFCH. */
     int pattern[16] = {0*512, 1*512, 2*512, 3*512, 4*512, 5*512, 6*512, 7*512,
                        4*512, 1*512, 6*512, 3*512, 0*512, 5*512, 2*512, 7*512};
-    int i;
-    size_t blocklen = 8 * 4 * BYTES(MRO_B);
-    const uint8_t * last;
     if (blocklen > mlen) {
       blocklen = mlen & ~0x1f;
     }
