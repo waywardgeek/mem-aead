@@ -122,7 +122,7 @@ void frequency()
 
 void bench()
 {
-#define BENCH_SIZE     4096
+#define BENCH_SIZE     2*4096
 #define BENCH_TRIALS     32
 #define BENCH_MAXLEN   1536
   static unsigned char  in[BENCH_SIZE];

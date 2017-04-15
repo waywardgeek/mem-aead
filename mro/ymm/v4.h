@@ -39,6 +39,22 @@
   }                                     \
 } while(0)
 
+#define V4_PERMUTE_F_DIV4(B) do {            \
+  int i;                                \
+  for(i = 0; i < MRO_L/4; ++i) {          \
+    /* Column step */                   \
+    V4_G_F(B[ 0], B[ 4], B[ 8], B[12]); \
+    V4_G_F(B[ 1], B[ 5], B[ 9], B[13]); \
+    V4_G_F(B[ 2], B[ 6], B[10], B[14]); \
+    V4_G_F(B[ 3], B[ 7], B[11], B[15]); \
+    /* Diagonal step */                 \
+    V4_G_F(B[ 0], B[ 5], B[10], B[15]); \
+    V4_G_F(B[ 1], B[ 6], B[11], B[12]); \
+    V4_G_F(B[ 2], B[ 7], B[ 8], B[13]); \
+    V4_G_F(B[ 3], B[ 4], B[ 9], B[14]); \
+  }                                     \
+} while(0)
+
 #define V4_PERMUTE_B(B) do {            \
   int i;                                \
   for(i = 0; i < MRO_L; ++i) {          \
@@ -180,6 +196,13 @@
                            SHL256(LOADU256(&L[5]), 13))); \
 } while(0)
 
+
+#define V4_BLOCKCIPHER_F_DIV4(B, L) do { \
+  __m256i C[16];                    \
+  V4_XOR_MASK(C, L);                \
+  V4_PERMUTE_F_DIV4(C);                  \
+  V4_XOR_MASK(C, L);                \
+} while(0)
 
 #define V4_BLOCKCIPHER_F(B, L) do { \
   __m256i C[16];                    \

@@ -1,4 +1,5 @@
-CFLAGS=-O3 -march=core-avx2 -mtune=haswell -std=c89 -Wall -Wextra -pedantic -Wno-long-long
+#CFLAGS=-O3 -march=core-avx2 -mtune=haswell -std=c89 -Wall -Wextra -pedantic -Wno-long-long
+CFLAGS=-O3 -march=native -std=c89 -Wall -Wextra -pedantic -Wno-long-long
 
 all: check bench
 

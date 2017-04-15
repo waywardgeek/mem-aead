@@ -101,6 +101,45 @@ static void mro_compute_tag(void * tag,
   /* Absorb Message */
   memcpy(L, L_, BYTES(MRO_B));
   V1_BETA_UPDATE(L);
+
+  while(mlen >= 4 * 4 * BYTES(MRO_B)) {
+    __m256i M[16];
+
+    /* Absorb pattern is ABCDEFGHEBGDAFCH. */
+    int pattern[16] = {0*512, 1*512, 2*512, 3*512, 4*512, 5*512, 6*512, 7*512,
+                       4*512, 1*512, 6*512, 3*512, 0*512, 5*512, 2*512, 7*512};
+    int i;
+    size_t blocklen = 8 * 4 * BYTES(MRO_B);
+    const uint8_t * last;
+    if (blocklen > mlen) {
+      blocklen = mlen & ~0x1f;
+    }
+    last = m + blocklen - 512;
+    for (i = 0; i < 8; i++) {
+      const uint8_t * p = m + pattern[i];
+      if (p > last) {
+        p -= 4 * 4 * BYTES(MRO_B);
+      }
+      V4_ALPHA_UPDATE_1(L);
+      V4_LOAD_BLOCK(M, p);
+      V4_BLOCKCIPHER_F_DIV4(M, L);
+      V4_ACCUMULATE(B, M);
+      V4_ALPHA_UPDATE_2(L);
+    }
+    for (i = 0; i < 8; i++) {
+      const uint8_t * p = m + pattern[i];
+      if (p > last) {
+        p -= 4 * 4 * BYTES(MRO_B);
+      }
+      V4_LOAD_BLOCK(M, p);
+      V4_BLOCKCIPHER_F_DIV4(M, L);
+      V4_ACCUMULATE(B, M);
+    }
+
+    m    += blocklen;
+    mlen -= blocklen;
+  }
+
   while(mlen >= 4 * BYTES(MRO_B)) {
     __m256i M[16];
     V4_ALPHA_UPDATE_1(L);
