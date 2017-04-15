@@ -115,7 +115,7 @@ static void mro_compute_tag(void * tag,
       blocklen = mlen & ~0x1f;
     }
     last = m + blocklen - 512;
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 16; i++) {
       const uint8_t * p = m + pattern[i];
       if (p > last) {
         p -= 4 * 4 * BYTES(MRO_B);
@@ -125,15 +125,6 @@ static void mro_compute_tag(void * tag,
       V4_BLOCKCIPHER_F_DIV4(M, L);
       V4_ACCUMULATE(B, M);
       V4_ALPHA_UPDATE_2(L);
-    }
-    for (i = 0; i < 8; i++) {
-      const uint8_t * p = m + pattern[i];
-      if (p > last) {
-        p -= 4 * 4 * BYTES(MRO_B);
-      }
-      V4_LOAD_BLOCK(M, p);
-      V4_BLOCKCIPHER_F_DIV4(M, L);
-      V4_ACCUMULATE(B, M);
     }
 
     m    += blocklen;
